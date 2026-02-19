@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Vua Tiếng Hàn - Korean Challenge</title>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Vua Tiếng Hàn (한국어 챌린지)" />
+    <meta
+      property="og:description"
+      content="Trò chơi từ vựng tiếng Hàn siêu tốc!"
+    />
+    <meta property="og:image" content="logo.png" />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&family=Roboto:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <div id="app">
+      <div id="opening-screen" class="screen active">
+        <div class="opening-content" style="text-align: center; width: 100%">
+          <img
+            src="assets/logo.png"
+            alt="Vua Tiếng Hàn Logo"
+            style="
+              max-width: 90%;
+              height: auto;
+              margin-bottom: 30px;
+            "
+          />
+          </p>
+        </div>
+      </div>
+
+      <div id="lobby-screen" class="screen">
+        <div class="logo-area">
+          <span class="brand-tag">TOPIK & Basic</span>
+          <h1>Thử thách Tiếng Hàn<br />with Jindam Korean</h1>
+          <p>20 câu hỏi! Trả lời trong 10 giây ⏱️</p>
+        </div>
+
+        <div class="stats-bar">
+          <div class="guide-text-area">
+            <p class="guide-highlight">Hãy đọc to khi nhấn nút! 🗣️</p>
+            <p class="guide-sub">Từ vựng tiếng Hàn bật ra trong 1 giây</p>
+          </div>
+
+          <div class="stat-item">
+            <span class="stat-label">Tiến độ của tôi</span>
+            <span class="stat-value" id="total-cleared">0/30</span>
+          </div>
+          <div class="stat-progress">
+            <div class="stat-fill" id="total-progress"></div>
+          </div>
+        </div>
+
+        <div class="theme-grid" id="theme-list"></div>
+      </div>
+
+      <div id="game-screen" class="screen">
+        <div class="timer-container">
+          <div class="timer-fill" id="timer-fill"></div>
+        </div>
+
+        <div class="game-top-bar">
+          <button id="close-game" class="icon-btn">✕</button>
+          <div class="stage-info">
+            <span id="current-stage-name">Stage 1</span>
+          </div>
+          <span class="score-badge" id="score-display">1/20</span>
+        </div>
+
+        <div class="progress-container">
+          <div class="progress-bar" id="progress-fill"></div>
+        </div>
+
+        <div class="card-area">
+          <div class="watermark">Jindam Korean</div>
+
+          <div class="flash-card">
+            <div class="word-main" id="q-korean"></div>
+            <div class="word-sub" id="q-pronun"></div>
+          </div>
+        </div>
+
+        <div class="interaction-area">
+          <div class="options-grid">
+            <button class="option-btn" id="btn-1">Option 1</button>
+            <button class="option-btn" id="btn-2">Option 2</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="result-screen" class="screen">
+        <div class="result-content">
+          <div class="result-icon-box">
+            <span id="res-icon" class="bounce">🎉</span>
+          </div>
+          <h2 id="res-title">Hoàn thành!</h2>
+          <p id="res-msg">Phản xạ của bạn thật tuyệt vời!</p>
+        </div>
+
+        <div class="bottom-actions">
+          <button class="main-btn" id="retry-btn">Chơi lại (다시하기)</button>
+          <button class="sub-btn" id="next-btn">Về trang chủ (로비로)</button>
+
+          <div
+            class="promo-box"
+            onclick="window.open('https://jindam1799.imweb.me/41', '_blank')"
+          >
+            <span class="promo-icon">🎁</span>
+            <div class="promo-text">
+              <strong>Bạn muốn học tiếng Hàn bài bản?</strong>
+              <span>Tham gia khóa học Jindam (Click)</span>
+            </div>
+          </div>
+
+          <div
+            class="promo-box"
+            onclick="window.open('https://open.kakao.com/o/gEliOL8h', '_blank')"
+          >
+            <span class="promo-icon">💬</span>
+            <div class="promo-text">
+              <strong>Bạn có muốn cùng luyện tập tiếng Hàn không?</strong>
+              <span>Tham gia nhóm chat ngay (단톡방 참여하기 Click)</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="start-guide-modal" class="modal-overlay">
+        <div class="modal-content">
+          <div
+            style="
+              background: var(--primary);
+              color: white;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 0.7rem;
+              font-weight: bold;
+              margin-bottom: 10px;
+            "
+          >
+            GUIDE
+          </div>
+          <h3>Sẵn sàng chưa? 🔥</h3>
+          <ul
+            style="
+              text-align: left;
+              padding: 0;
+              list-style: none;
+              margin: 20px 0;
+              width: 100%;
+            "
+          >
+            <li style="margin-bottom: 10px; font-size: 0.9rem">
+              💬 Từ vựng <strong>TOPIK & Cơ bản</strong>.
+            </li>
+            <li style="margin-bottom: 10px; font-size: 0.9rem">
+              ⏱️ Trả lời trong <strong>10 giây</strong>.
+            </li>
+            <li style="margin-bottom: 10px; font-size: 0.9rem">
+              🗣️ Hãy <strong>đọc to</strong> khi chọn đáp án!
+            </li>
+            <li style="margin-bottom: 10px; font-size: 0.9rem">
+              💡 Chạm vào từ để xem <strong>cách phát âm</strong>.
+            </li>
+          </ul>
+          <div class="modal-buttons">
+            <button id="guide-close-btn" class="sub-btn">Để sau</button>
+            <button id="guide-start-btn" class="main-btn">Bắt đầu!</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="exit-modal" class="modal-overlay">
+        <div class="modal-content">
+          <h3>Bạn muốn thoát? 😢</h3>
+          <p>Tiến trình sẽ không được lưu.</p>
+          <div class="modal-buttons">
+            <button id="modal-cancel-btn" class="sub-btn">Tiếp tục</button>
+            <button id="modal-confirm-btn" class="main-btn stop-btn">
+              Thoát
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div id="locked-modal" class="modal-overlay">
+        <div class="modal-content">
+          <div
+            style="
+              background: #6b7280;
+              color: white;
+              padding: 4px 8px;
+              border-radius: 4px;
+              font-size: 0.7rem;
+              font-weight: bold;
+              margin-bottom: 10px;
+            "
+          >
+            PREMIUM ONLY
+          </div>
+
+          <h3 style="margin-top: 0">🔒 Khóa (Locked)</h3>
+
+          <p
+            style="
+              color: var(--text-sub);
+              font-size: 0.95rem;
+              margin-bottom: 20px;
+              word-break: keep-all;
+            "
+          >
+            Phiên bản miễn phí chỉ mở đến bài 10.<br />
+            Bạn muốn mở khóa <strong>tất cả chủ đề</strong>?
+          </p>
+
+          <div
+            class="locked-promo-card"
+            onclick="window.open('https://ig.me/j/AbaURDjJq5_3dXsP/', '_blank')"
+          >
+            <div class="promo-content">
+              <span class="promo-emoji">👉</span>
+              <div class="promo-desc">
+                <strong style="color: var(--primary); font-size: 1rem"
+                  >Mua phiên bản đầy đủ</strong
+                >
+                <span style="font-size: 0.8rem; color: #6b7280"
+                  >Đến cửa hàng Jindam</span
+                >
+              </div>
+            </div>
+            <span class="arrow-icon">›</span>
+          </div>
+
+          <div
+            class="locked-promo-card"
+            onclick="window.open('https://open.kakao.com/o/gEliOL8h', '_blank')"
+          >
+            <div class="promo-content">
+              <span class="promo-emoji">💬</span>
+              <div class="promo-desc">
+                <strong style="color: var(--primary); font-size: 0.95rem"
+                  >Bạn muốn luyện tập tiếng Hàn?</strong
+                >
+                <span style="font-size: 0.8rem; color: #6b7280"
+                  >Tham gia nhóm chat Kakao</span
+                >
+              </div>
+            </div>
+            <span class="arrow-icon">›</span>
+          </div>
+
+          <div class="modal-buttons" style="margin-top: 15px">
+            <button id="locked-close-btn" class="sub-btn" style="width: 100%">
+              Để sau
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>
