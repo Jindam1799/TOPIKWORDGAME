@@ -1,562 +1,348 @@
-:root {
-  /* ★★★ 새로운 메인 색상 적용 (#A12828) ★★★ */
-  --primary: #a12828;
-  --primary-dark: #7a1e1e; /* 버튼 눌림 효과 등에 쓰일 더 진한 붉은색 */
-  --accent: #f59e0b; /* 포인트 옐로우 (별, 아이콘 등) */
-  --text-main: #1f2937;
-  --text-sub: #6b7280;
-  --bg-color: #f3f4f6;
-  --card-bg: #ffffff;
-  --error: #ef4444; /* 오답/타이머 색상 (더 밝고 경고 느낌이 나는 빨강) */
-  --timer-color: #ef4444;
-  --shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --vh: 1vh;
-}
+const QUESTION_COUNT = 20;
+const TIME_LIMIT = 10;
 
-* {
-  box-sizing: border-box;
-  -webkit-tap-highlight-color: transparent;
-}
+let currentTheme = null;
+let currentQuestions = [];
+let currentIndex = 0;
+let wrongCount = 0;
+let timerInterval = null;
+let selectedThemeId = null;
 
-body {
-  font-family: 'Noto Sans KR', 'Roboto', sans-serif;
-  background-color: #e5e7eb;
-  margin: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
-  height: calc(var(--vh, 1vh) * 100);
-  color: var(--text-main);
-  overflow: hidden;
-}
+// DOM
+const themeList = document.getElementById('theme-list');
+const timerFill = document.getElementById('timer-fill');
+const flashCard = document.querySelector('.flash-card');
+const exitModal = document.getElementById('exit-modal');
+const modalCancelBtn = document.getElementById('modal-cancel-btn');
+const modalConfirmBtn = document.getElementById('modal-confirm-btn');
+const startGuideModal = document.getElementById('start-guide-modal');
+const guideStartBtn = document.getElementById('guide-start-btn');
+const guideCloseBtn = document.getElementById('guide-close-btn');
+const lockedModal = document.getElementById('locked-modal');
+const lockedCloseBtn = document.getElementById('locked-close-btn');
 
-#app {
-  width: 100%;
-  max-width: 440px;
-  height: 100%;
-  height: calc(var(--vh, 1vh) * 100);
-  background-color: var(--bg-color);
-  position: relative;
-  overflow: hidden;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-  display: flex;
-  flex-direction: column;
-}
+// --- 오디오 객체 생성 ---
+const timerAudio = new Audio('assets/timer.mp3');
+timerAudio.loop = false;
+const correctAudio = new Audio('assets/correct.mp3');
+const wrongAudio = new Audio('assets/wrong.mp3');
+const clearAudio = new Audio('assets/clear.mp3');
 
-.screen {
-  display: none;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-  background: var(--bg-color);
-  z-index: 1;
+function setScreenSize() {
+  let vh = window.innerHeight * 0.01;
+  document.documentElement.style.setProperty('--vh', `${vh}px`);
 }
+setScreenSize();
+window.addEventListener('resize', setScreenSize);
 
-#lobby-screen,
-#result-screen {
-  overflow-y: auto;
-}
+init();
 
-.active {
-  display: flex !important;
-  z-index: 10;
-  animation: fadeIn 0.2s ease-in-out;
-}
+function init() {
+  renderLobby();
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+  const openingScreen = document.getElementById('opening-screen');
+  if (openingScreen) {
+    openingScreen.onclick = () => {
+      // 오프닝 화면 클릭 시 로비로 이동
+      openingScreen.classList.remove('active');
+      showScreen('lobby-screen');
+    };
   }
-  to {
-    opacity: 1;
+
+  if (flashCard) {
+    flashCard.onclick = () => {
+      document.getElementById('q-pronun').classList.add('visible');
+    };
   }
-}
 
-/* 1. 로비 화면 */
-#lobby-screen {
-  padding: 25px 20px;
-}
-.logo-area {
-  margin-bottom: 25px;
-}
-.brand-tag {
-  background: var(--primary);
-  color: #fff;
-  padding: 4px 10px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-.logo-area h1 {
-  font-size: 1.8rem;
-  margin: 10px 0 5px;
-  line-height: 1.2;
-  color: var(--text-main);
-}
-.logo-area p {
-  color: var(--text-sub);
-  font-size: 0.95rem;
-  margin: 0;
-}
-.stats-bar {
-  background: #fff;
-  padding: 15px;
-  border-radius: 16px;
-  margin-bottom: 25px;
-  box-shadow: var(--shadow);
-}
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-  font-weight: 600;
-}
-.stat-progress {
-  height: 10px;
-  background: #e5e7eb;
-  border-radius: 5px;
-  overflow: hidden;
-}
-.stat-fill {
-  height: 100%;
-  /* 그라데이션 색상을 메인톤에 어울리게 변경 */
-  background: linear-gradient(90deg, var(--primary), #d65a5a);
-  width: 0%;
-  transition: width 0.5s ease;
-}
+  guideStartBtn.onclick = () => {
+    startGuideModal.style.display = 'none';
+    startGame(selectedThemeId);
+  };
 
-.theme-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 15px;
-  padding-bottom: 40px;
-}
-.theme-card {
-  background: #fff;
-  border-radius: 18px;
-  padding: 20px 15px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  cursor: pointer;
-  position: relative;
-  border: 2px solid transparent;
-  transition: all 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-.theme-card:active {
-  transform: scale(0.96);
-}
-.theme-card.cleared {
-  border-color: var(--primary);
-  /* 완료된 카드의 배경을 메인톤에 맞는 연한 붉은/핑크 톤으로 변경 */
-  background: #fff0f0;
-}
-.theme-icon {
-  font-size: 2.5rem;
-  margin-bottom: 10px;
-}
-.theme-title {
-  font-size: 0.9rem;
-  font-weight: 700;
-  line-height: 1.4;
-  word-break: keep-all;
-  white-space: pre-wrap;
-}
-.stamp {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  font-size: 1.2rem;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
-}
+  guideCloseBtn.onclick = () => {
+    startGuideModal.style.display = 'none';
+  };
 
-.guide-text-area {
-  text-align: center;
-  margin-bottom: 15px;
-  padding-bottom: 15px;
-  border-bottom: 1px dashed #e5e7eb;
-}
-.guide-highlight {
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--primary);
-  margin: 0 0 5px 0;
-}
-.guide-sub {
-  font-size: 0.85rem;
-  color: var(--text-sub);
-  margin: 0;
-  letter-spacing: -0.5px;
-}
+  document.getElementById('close-game').onclick = () => {
+    resetTimer();
+    exitModal.style.display = 'flex';
+  };
 
-/* 2. 게임 화면 */
-#game-screen {
-  background: #fff;
-  padding: 0;
-  justify-content: space-between;
-}
-.timer-container {
-  width: 100%;
-  height: 6px;
-  background: #e5e7eb;
-}
-.timer-fill {
-  width: 100%;
-  height: 100%;
-  background-color: var(--timer-color);
-  transform-origin: left;
-}
-.game-top-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 20px;
-}
-.icon-btn {
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  color: #9ca3af;
-  cursor: pointer;
-  padding: 0;
-}
-.stage-info {
-  font-weight: 800;
-  font-size: 1rem;
-  color: var(--text-main);
-}
-.score-badge {
-  background: var(--bg-color);
-  padding: 5px 12px;
-  border-radius: 12px;
-  font-weight: 700;
-  font-size: 0.9rem;
-  color: var(--primary);
-}
-.progress-container {
-  width: 100%;
-  height: 4px;
-  background: #f3f4f6;
-}
-.progress-bar {
-  height: 100%;
-  background: var(--primary);
-  width: 0%;
-  transition: width 0.3s;
-}
+  modalCancelBtn.onclick = () => {
+    exitModal.style.display = 'none';
+    startTimer();
+  };
 
-.card-area {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 10px 20px;
-  flex-direction: column;
-  position: relative;
-}
-.watermark {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  font-size: 1rem;
-  font-weight: bold;
-  color: var(--primary);
-  opacity: 0.3;
-}
-.flash-card {
-  text-align: center;
-  animation: popIn 0.3s;
-  cursor: pointer;
-  padding: 15px;
-}
-@keyframes popIn {
-  from {
-    transform: scale(0.9);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-.word-main {
-  font-size: clamp(3rem, 10vh, 4rem);
-  font-weight: 800;
-  color: var(--text-main);
-  margin-bottom: 5px;
-  line-height: 1.1;
-}
-.word-sub {
-  font-size: 1.4rem;
-  color: #6b7280;
-  font-weight: 500;
-  opacity: 0;
-  height: 1.8rem;
-}
-.word-sub.visible {
-  opacity: 1;
-  transition: all 0.3s ease;
-}
+  modalConfirmBtn.onclick = () => {
+    exitModal.style.display = 'none';
+    showScreen('lobby-screen');
+  };
 
-.interaction-area {
-  padding: 0 15px 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-.options-grid {
-  display: flex;
-  gap: 12px;
-  height: clamp(100px, 16vh, 130px);
-}
-.option-btn {
-  flex: 1;
-  background: #fff;
-  border: 2px solid #e5e7eb;
-  color: var(--text-main);
-  padding: 10px;
-  font-size: 1.1rem;
-  border-radius: 16px;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 4px 0 #e5e7eb;
-  word-break: keep-all;
-  line-height: 1.2;
-}
-.option-btn:active {
-  transform: translateY(4px);
-  box-shadow: none;
-  background: #f9fafb;
-}
-.option-btn.wrong-anim {
-  animation: shake 0.4s;
-  background: var(--error);
-  color: white;
-  border-color: var(--error);
-  box-shadow: 0 4px 0 #b91c1c;
-}
-@keyframes shake {
-  0%,
-  100% {
-    transform: translateX(0);
-  }
-  25% {
-    transform: translateX(-5px);
-  }
-  75% {
-    transform: translateX(5px);
+  if (lockedCloseBtn) {
+    lockedCloseBtn.onclick = () => {
+      lockedModal.style.display = 'none';
+    };
   }
 }
 
-/* 3. 결과 화면 */
-#result-screen {
-  padding: 30px 20px;
-  background: #fff;
-}
-.result-content {
-  text-align: center;
-  margin-top: 20px;
-}
-.result-icon-box {
-  font-size: 4rem;
-  margin-bottom: 15px;
-}
-#res-title {
-  font-size: 1.8rem;
-  margin: 0 0 10px;
-  color: var(--text-main);
-}
-#res-msg {
-  font-size: 1rem;
-  color: var(--text-sub);
-  margin: 0;
+function renderLobby() {
+  themeList.innerHTML = '';
+  // 로컬 스토리지 키 변경 (jindam_cleared_kr)
+  const clearedData = JSON.parse(
+    localStorage.getItem('jindam_cleared_kr') || '[]',
+  );
+  const total = themesData.length;
+  const cleared = clearedData.length;
+
+  document.getElementById('total-cleared').innerText = `${cleared}/${total}`;
+  document.getElementById('total-progress').style.width =
+    `${(cleared / total) * 100}%`;
+
+  themesData.forEach((theme) => {
+    const isCleared = clearedData.includes(theme.id);
+    const isLocked = theme.id > 20; // 20번 초과 잠금
+
+    const card = document.createElement('div');
+    card.className = `theme-card ${isCleared ? 'cleared' : ''} ${isLocked ? 'locked' : ''}`;
+
+    card.onclick = () => {
+      if (isLocked) {
+        lockedModal.style.display = 'flex';
+      } else {
+        selectedThemeId = theme.id;
+        startGuideModal.style.display = 'flex';
+      }
+    };
+
+    card.innerHTML = `
+      ${
+        isLocked
+          ? '<div class="lock-badge">🔒</div>'
+          : isCleared
+            ? '<div class="stamp">👑</div>'
+            : ''
+      }
+      <div class="theme-icon">${theme.icon}</div>
+      <div class="theme-title">${theme.title}</div>
+    `;
+    themeList.appendChild(card);
+  });
 }
 
-.bottom-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: 100%;
-  margin-top: 20px;
-  padding-bottom: 30px;
-}
-/* 버튼 스타일 */
-.main-btn {
-  background: var(--primary) !important;
-  color: white !important;
-  padding: 18px;
-  border-radius: 16px;
-  font-size: 1.1rem;
-  font-weight: 700;
-  cursor: pointer;
-  border: none;
-  /* 버튼 그림자 톤 변경 */
-  box-shadow: 0 4px 10px -3px rgba(161, 40, 40, 0.5);
-}
-.sub-btn {
-  background: #fff !important;
-  color: var(--text-sub) !important;
-  border: 2px solid #e5e7eb !important;
-  padding: 16px;
-  border-radius: 16px;
-  font-size: 1rem;
-  font-weight: 700;
-  cursor: pointer;
+function showScreen(screenId) {
+  const screens = document.querySelectorAll('.screen');
+  const targetScreen = document.getElementById(screenId);
+  targetScreen.classList.add('active');
+  screens.forEach((s) => {
+    if (s.id !== screenId) s.classList.remove('active');
+  });
+  targetScreen.scrollTop = 0;
 }
 
-/* 프로모션 박스 */
-.promo-box {
-  display: flex;
-  align-items: center;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 16px;
-  padding: 15px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  text-align: left;
-}
-.promo-box:active {
-  transform: scale(0.98);
-  background: #f3f4f6;
-}
-.promo-icon {
-  font-size: 1.8rem;
-  margin-right: 15px;
-  flex-shrink: 0;
-}
-.promo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-.promo-text strong {
-  font-size: 0.9rem;
-  color: var(--text-main);
-}
-.promo-text span {
-  font-size: 0.8rem;
-  color: var(--primary);
-  font-weight: 600;
+function startGame(themeId) {
+  currentTheme = themesData.find((t) => t.id === themeId);
+  if (!currentTheme) return;
+
+  // 랜덤 문제 섞기
+  currentQuestions = [...currentTheme.words]
+    .sort(() => Math.random() - 0.5)
+    .slice(0, QUESTION_COUNT);
+
+  currentIndex = 0;
+  wrongCount = 0;
+  document.getElementById('current-stage-name').innerText =
+    currentTheme.title.split('\n')[0]; // 제목 첫 줄만 표시
+  showScreen('game-screen');
+  renderQuestion();
 }
 
-/* 4. 모달 */
-.modal-overlay {
-  position: absolute;
-  inset: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
-  display: none;
-  justify-content: center;
-  align-items: center;
-}
-.modal-content {
-  background: #fff;
-  width: 85%;
-  max-width: 320px;
-  padding: 25px 20px;
-  border-radius: 20px;
-  text-align: center;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+function renderQuestion() {
+  resetTimer();
+  if (currentIndex >= currentQuestions.length) {
+    endGame(true);
+    return;
+  }
+
+  const q = currentQuestions[currentIndex];
+  // 데이터 키 매핑: kr(한국어), pr(발음), vn(베트남어 뜻)
+  document.getElementById('q-korean').innerText = q.kr;
+  const pinyinEl = document.getElementById('q-pronun');
+  pinyinEl.innerText = q.pr;
+  pinyinEl.classList.remove('visible');
+
+  document.getElementById('score-display').innerText =
+    `${currentIndex + 1}/${currentQuestions.length}`;
+  document.getElementById('progress-fill').style.width =
+    `${(currentIndex / currentQuestions.length) * 100}%`;
+
+  let wrongAnswer;
+  let attempts = 0;
+
+  // [중복 방지 로직 - 베트남어 버전]
+  do {
+    const randomIdx = Math.floor(Math.random() * currentTheme.words.length);
+    wrongAnswer = currentTheme.words[randomIdx].vn;
+    attempts++;
+
+    // 쉼표/슬래시 등으로 구분된 단어 쪼개기 (베트남어 뜻)
+    // 예: "Xin chào, Chào" -> ["Xin chào", "Chào"]
+    const splitChars = /[,/]/;
+    const answerKeywords = q.vn
+      .split(splitChars)
+      .map((s) => s.trim().toLowerCase());
+    const wrongAnswerLower = wrongAnswer.toLowerCase();
+
+    // 오답에 정답 키워드가 포함되어 있는지 확인
+    const isOverlapping = answerKeywords.some((keyword) =>
+      wrongAnswerLower.includes(keyword),
+    );
+
+    if (isOverlapping || wrongAnswer === q.vn) {
+      wrongAnswer = null; // 다시 뽑기
+    }
+  } while (!wrongAnswer && attempts < 30 && currentTheme.words.length > 1);
+
+  if (!wrongAnswer) {
+    // 실패 시 아무거나
+    const randomIdx = Math.floor(Math.random() * currentTheme.words.length);
+    wrongAnswer = currentTheme.words[randomIdx].vn;
+  }
+
+  const btn1 = document.getElementById('btn-1');
+  const btn2 = document.getElementById('btn-2');
+  const newBtn1 = btn1.cloneNode(true);
+  const newBtn2 = btn2.cloneNode(true);
+
+  newBtn1.className = 'option-btn';
+  newBtn2.className = 'option-btn';
+
+  btn1.parentNode.replaceChild(newBtn1, btn1);
+  btn2.parentNode.replaceChild(newBtn2, btn2);
+
+  const isAnswerLeft = Math.random() < 0.5;
+  if (isAnswerLeft) {
+    newBtn1.innerText = q.vn; // 정답(베트남어)
+    newBtn2.innerText = wrongAnswer;
+    newBtn1.onclick = () => handleAnswer(true, newBtn1);
+    newBtn2.onclick = () => handleAnswer(false, newBtn2);
+  } else {
+    newBtn1.innerText = wrongAnswer;
+    newBtn2.innerText = q.vn; // 정답(베트남어)
+    newBtn1.onclick = () => handleAnswer(false, newBtn1);
+    newBtn2.onclick = () => handleAnswer(true, newBtn2);
+  }
+  startTimer();
 }
 
-/* 5. 오프닝 */
-#opening-screen {
-  background-color: var(--primary);
-  z-index: 20;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-}
-#opening-screen:not(.active) {
-  display: none !important;
+function startTimer() {
+  timerFill.style.transition = 'none';
+  timerFill.style.width = '100%';
+
+  // 타이머 오디오 재생
+  timerAudio.currentTime = 0;
+  timerAudio.play().catch((e) => console.warn('오디오 재생 차단됨:', e));
+
+  setTimeout(() => {
+    timerFill.style.transition = `width ${TIME_LIMIT}s linear`;
+    timerFill.style.width = '0%';
+  }, 50);
+
+  timerInterval = setTimeout(
+    () => endGame(false, 'Hết giờ! (시간 초과)'),
+    TIME_LIMIT * 1000,
+  );
 }
 
-/* 6. 잠금 상태 */
-.theme-card.locked {
-  background-color: #f3f4f6;
-  border: 1px solid #e5e7eb;
-  opacity: 0.8;
-}
-.theme-card.locked .theme-icon,
-.theme-card.locked .theme-title {
-  opacity: 0.5;
-  filter: grayscale(100%);
-}
-.lock-badge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  font-size: 1.2rem;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+function resetTimer() {
+  clearTimeout(timerInterval);
+
+  // 타이머 오디오 정지
+  timerAudio.pause();
+  timerAudio.currentTime = 0;
+
+  timerFill.style.transition = 'none';
+  timerFill.style.width = '100%';
 }
 
-/* 7. 잠금 팝업 내 카드 */
-.locked-promo-card {
-  /* 카드 배경을 메인톤에 맞춰 연한 붉은색으로 변경 */
-  background-color: #fff0f0;
-  border: 2px solid var(--primary);
-  border-radius: 12px;
-  padding: 15px;
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  cursor: pointer;
-  margin-bottom: 10px;
-  /* 그림자 색상 톤 변경 */
-  box-shadow: 0 2px 4px rgba(161, 40, 40, 0.1);
-}
-.locked-promo-card:active {
-  transform: scale(0.96);
-  /* 눌렀을 때 약간 더 진한 핑크/레드 배경 */
-  background: #fad2d2;
-}
-.promo-content {
-  display: flex;
-  align-items: center;
-  text-align: left;
-  gap: 12px;
-}
-.promo-emoji {
-  font-size: 1.8rem;
-}
-.promo-desc {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.arrow-icon {
-  font-size: 1.5rem;
-  color: var(--primary);
-  font-weight: bold;
+function handleAnswer(isCorrect, btnElement) {
+  resetTimer();
+
+  // 1. 중복 클릭 방지를 위해 잠시 모든 버튼 클릭 막기
+  const allBtns = document.querySelectorAll('.option-btn');
+  allBtns.forEach((btn) => (btn.style.pointerEvents = 'none'));
+
+  // 2. 선택 직후 발음 자동 노출 (q-pronun)
+  document.getElementById('q-pronun').classList.add('visible');
+
+  if (isCorrect) {
+    // 3. 정답 사운드 재생
+    correctAudio.currentTime = 0;
+    correctAudio.play().catch((e) => console.warn('오디오 재생 차단됨:', e));
+
+    // 4. 정답 시각적 피드백 (초록색 버튼 효과)
+    btnElement.classList.add('correct-anim');
+
+    // 5. 0.4초 대기 후 다음 문제로 이동 및 클릭 잠금 해제
+    setTimeout(() => {
+      currentIndex++;
+      allBtns.forEach((btn) => (btn.style.pointerEvents = 'auto'));
+      renderQuestion();
+    }, 400);
+  } else {
+    // 오답 사운드 재생
+    wrongAudio.currentTime = 0;
+    wrongAudio.play().catch((e) => console.warn('오디오 재생 차단됨:', e));
+
+    // 오답 시각적 피드백 (빨간색 흔들림 효과)
+    btnElement.classList.add('wrong-anim');
+
+    // 0.4초 대기 후 결과 화면으로 이동
+    setTimeout(() => {
+      allBtns.forEach((btn) => (btn.style.pointerEvents = 'auto'));
+      endGame(false);
+    }, 400);
+  }
 }
 
-/* 정답 시 초록색 애니메이션 효과 (베트남어 버전) */
-.option-btn.correct-anim {
-  background: #10b981 !important; /* 직관적인 정답 초록색 */
-  color: white !important;
-  border-color: #10b981 !important;
-  box-shadow: 0 4px 0 #059669 !important;
-  transform: translateY(4px) scale(1.02);
-  transition: all 0.2s ease;
+function endGame(isSuccess, reason = '') {
+  resetTimer();
+  showScreen('result-screen');
+  const icon = document.getElementById('res-icon');
+  const title = document.getElementById('res-title');
+  const msg = document.getElementById('res-msg');
+
+  if (isSuccess) {
+    // ★ 20문제 올클리어 사운드 재생
+    clearAudio.currentTime = 0;
+    clearAudio.play().catch((e) => console.warn('오디오 재생 차단됨:', e));
+
+    icon.innerText = '👑';
+    title.innerText = 'Hoàn thành!';
+    title.style.color = 'var(--primary)';
+    msg.innerText = `${QUESTION_COUNT} câu hỏi đã được chinh phục!`;
+
+    const clearedData = JSON.parse(
+      localStorage.getItem('jindam_cleared_kr') || '[]',
+    );
+    if (!clearedData.includes(currentTheme.id)) {
+      clearedData.push(currentTheme.id);
+      localStorage.setItem('jindam_cleared_kr', JSON.stringify(clearedData));
+    }
+  } else {
+    icon.innerText = '😢';
+    title.innerText = reason ? reason : 'Thất bại...';
+    title.style.color = 'var(--error)';
+    msg.innerText = reason
+      ? 'Hãy nhanh tay hơn!'
+      : `Bạn đã sai ở câu số ${currentIndex + 1}.`;
+  }
+
+  // 버튼 이벤트 연결
+  document.getElementById('next-btn').onclick = () => {
+    renderLobby();
+    showScreen('lobby-screen');
+  };
+  document.getElementById('retry-btn').onclick = () =>
+    startGame(currentTheme.id);
 }
