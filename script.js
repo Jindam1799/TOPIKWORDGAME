@@ -101,7 +101,7 @@ function renderLobby() {
 
   themesData.forEach((theme) => {
     const isCleared = clearedData.includes(theme.id);
-    const isLocked = theme.id > 20; // 20번 초과 잠금
+    const isLocked = theme.id > 31; // 31번 초과 잠금
 
     const card = document.createElement('div');
     card.className = `theme-card ${isCleared ? 'cleared' : ''} ${isLocked ? 'locked' : ''}`;
@@ -283,12 +283,12 @@ function handleAnswer(isCorrect, btnElement) {
     // 4. 정답 시각적 피드백 (초록색 버튼 효과)
     btnElement.classList.add('correct-anim');
 
-    // 5. 0.4초 대기 후 다음 문제로 이동 및 클릭 잠금 해제
+    // 5. 1.5초 대기 후 다음 문제로 이동 및 클릭 잠금 해제
     setTimeout(() => {
       currentIndex++;
       allBtns.forEach((btn) => (btn.style.pointerEvents = 'auto'));
       renderQuestion();
-    }, 400);
+    }, 1500);
   } else {
     // 오답 사운드 재생
     wrongAudio.currentTime = 0;
@@ -297,11 +297,11 @@ function handleAnswer(isCorrect, btnElement) {
     // 오답 시각적 피드백 (빨간색 흔들림 효과)
     btnElement.classList.add('wrong-anim');
 
-    // 0.4초 대기 후 결과 화면으로 이동
+    // 1.5초 대기 후 결과 화면으로 이동
     setTimeout(() => {
       allBtns.forEach((btn) => (btn.style.pointerEvents = 'auto'));
       endGame(false);
-    }, 400);
+    }, 1500);
   }
 }
 
